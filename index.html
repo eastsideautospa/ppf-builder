@@ -3,6 +3,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
+<meta name="copyright" content="© 2026 Eastside Auto Spa. All rights reserved.">
+<!-- © 2026 Eastside Auto Spa, Cincinnati, OH. All rights reserved. Proprietary and confidential. No license is granted to copy, modify, host or redistribute this code, its drawings, data or design. -->
 <meta name="description" content="See your vehicle's paint protection film options and pricing, piece by piece. Eastside Auto Spa, Cincinnati.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Eastside Auto Spa">
@@ -324,7 +326,7 @@ function render(){
     });
     h+='<p class="fine">Prices include professional installation with film cut in-house to fit your car, and CQuartz Skin coating on every film install. Final pricing is confirmed when we see the vehicle.</p></div></div>';
   }
-  h+='<footer class="ft"><span>'+esc(LIB.shop.name)+'</span>'+(state.canEdit?'<button class="btn plain" id="admin">Shop tools</button>':'')+'</footer></div>';
+  h+='<footer class="ft"><span>&copy; '+new Date().getFullYear()+' '+esc(LIB.shop.name)+'. All rights reserved. This tool, its design, drawings and pricing may not be copied or reused without written permission.</span>'+(state.canEdit?'<button class="btn plain" id="admin">Shop tools</button>':'')+'</footer></div>';
   var sel=selected(v), tot=sel.reduce(function(s,p){return s+p.price;},0);
   if(v){h+='<div class="bar"><div class="in"><div class="total"><span class="lbl">Estimate</span><span class="amt">'+money(tot)+'</span><span class="cnt">'+sel.length+' piece'+(sel.length===1?"":"s")+'</span></div><div class="acts"><button class="btn ghost" id="clear"'+(sel.length?"":" disabled")+'>Clear</button><button class="btn primary" id="review"'+(sel.length?"":" disabled")+'>Plan my protection</button></div></div></div>';}
   app.innerHTML=h;

@@ -1,6 +1,7 @@
 # Eastside Auto Spa PPF Builder
 
-Customer-facing paint protection film builder, served at https://ppf.eastsideautospa.com.
-Each vehicle has its own link: `https://ppf.eastsideautospa.com/#<vehicle-id>`.
+Proprietary customer tool for Eastside Auto Spa, served at https://ppf.eastsideautospa.com.
 
-Vehicle data and pricing are managed in the shop's private editor and published here.
+**© 2026 Eastside Auto Spa. All rights reserved.** This is not open-source software.
+No part of this repository may be copied, reused or redistributed without written
+permission. See [LICENSE](LICENSE).
