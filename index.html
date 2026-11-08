@@ -142,7 +142,7 @@ var CATS = {
   mirrors:{label:"Mirrors",sec:"front"},
   sides:{label:"Doors & rear fenders",sec:"sides"},
   rockers:{label:"Rocker panels",sec:"sides",ex:true},
-  lowerdoors:{label:"Lower doors (rocker kit)",sec:"sides"},
+  lowerdoors:{label:"Rocker kit, included with door kits",sec:"sides"},
   wear:{label:"Door cups, edges & high-wear spots",sec:"sides"},
   bpillars:{label:"B & C pillars",sec:"sides"},
   pillars:{label:"A-pillars & roof edge",sec:"top",ex:true},
@@ -257,7 +257,7 @@ function presetList(v,sel){
   var front=[].concat(pickHoodS(true),all("bumperF"),all("lamps"),all("grille"),all("fog"),all("mirrors"));
   var track=front.concat(all("rockers"),all("lowerdoors"),first("pillars"));
   var car=front.concat(all("sides"),all("rockers"),first("roof"),all("trunk"),all("bumperR"),all("diffuser"),all("wear"));
-  if(!(byCat(v,"roof").length&&byCat(v,"sides").length)) car=car.concat(first("pillars"));
+  var pk=first("pillars"); if(pk.length&&!pillarCovered(car,pk[0])) car=car.concat(pk);
   var out=[],seen={};
   [["partial","Partial front",partial],["front","Full front",front],["track","Track pack",track],["full","Full car",car]].forEach(function(p){
     if(p[2].length<2)return; var key=p[2].map(function(x){return x.id;}).sort().join(","); if(seen[key])return; seen[key]=1;
@@ -274,6 +274,8 @@ function covers(list){
   return {roof:has("roof"), sides:has("sides")};
 }
 function pillarRedundant(list){ var c=covers(list); return c.roof&&c.sides; }
+function hasRoofEdge(p){ return /roof/i.test(p.name+" "+p.note); }
+function pillarCovered(list,p){ var c=covers(list); return c.sides&&(c.roof||!hasRoofEdge(p)); }
 /* a "lower doors" rocker kit is part of the door kits, so full sides cover it */
 function lowerRedundant(list){ return covers(list).sides; }
 function coverage(list){
@@ -325,8 +327,8 @@ function render(){
       h+='<section class="sec"><h3>'+sec[1]+'</h3>';
       rows.forEach(function(p){
         var c=CATS[p.cat]||CATS.other; var alt=c.ex&&byCat(v,p.cat).length>1;
-        var cov=(redundant&&p.cat==="pillars")||(lowerCov&&p.cat==="lowerdoors"), pr=partnerOf(v,p);
-        h+='<label class="row'+(cov?' covered':'')+'" for="pc_'+p.id+'"><input type="checkbox" id="pc_'+p.id+'" data-piece="'+p.id+'"'+(state.sel[p.id]?" checked":"")+(cov?" disabled":"")+'>'+thumbFor(p,v)+'<span class="nm">'+esc(p.name)+(alt?'<span class="alt">pick one</span>':'')+(pr?'<span class="alt">sold as a pair</span>':'')+(p.note?'<span class="nt">'+esc(p.note)+'</span>':'')+(cov?'<span class="nt">'+(p.cat==="lowerdoors"?'Included with the door kits you picked':'Covered by the roof and side kits you picked')+'</span>':'')+'</span><span class="price">'+money(p.price)+'</span></label>';
+        var cov=(p.cat==="pillars"&&pillarCovered(selected(v),p))||(lowerCov&&p.cat==="lowerdoors"), pr=partnerOf(v,p);
+        h+='<label class="row'+(cov?' covered':'')+'" for="pc_'+p.id+'"><input type="checkbox" id="pc_'+p.id+'" data-piece="'+p.id+'"'+(state.sel[p.id]?" checked":"")+(cov?" disabled":"")+'>'+thumbFor(p,v)+'<span class="nm">'+esc(p.name)+(alt?'<span class="alt">pick one</span>':'')+(pr?'<span class="alt">sold as a pair</span>':'')+(p.note?'<span class="nt">'+esc(p.note)+'</span>':'')+(cov?'<span class="nt">'+(p.cat==="lowerdoors"||!hasRoofEdge(p)?'Included with the door kits you picked':'Covered by the roof and side kits you picked')+'</span>':'')+'</span><span class="price">'+money(p.price)+'</span></label>';
       });
       h+='</section>';
     });
@@ -370,7 +372,7 @@ function togglePiece(id,val){
   dropRedundant(v); state.preset=null; render();
 }
 function dropRedundant(v){
-  if(pillarRedundant(selected(v))) byCat(v,"pillars").forEach(function(o){delete state.sel[o.id];});
+  var s=selected(v); byCat(v,"pillars").forEach(function(o){ if(pillarCovered(s,o)) delete state.sel[o.id]; });
   if(lowerRedundant(selected(v))) byCat(v,"lowerdoors").forEach(function(o){delete state.sel[o.id];});
 }
 function presetMatches(p){ var k=Object.keys(state.sel); return k.length===p.ids.length&&p.ids.every(function(i){return state.sel[i];}); }
