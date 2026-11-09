@@ -912,7 +912,7 @@ function openAdmin(){
       d.querySelectorAll("[data-edit]").forEach(function(b){b.addEventListener("click",function(){var v=LIB.vehicles.filter(function(x){return x.id===b.getAttribute("data-edit");})[0];
         edit={id:v.id,year:v.year,make:v.make,model:v.model,trim:v.trim,body:v.body,drawing:drawFor(v),drawingSet:true,rows:v.pieces.map(function(p){return {name:p.name,note:p.note,cat:p.cat,price:p.price,ref:null};})};draw();});});
       d.querySelectorAll("[data-link]").forEach(function(b){b.addEventListener("click",function(){
-        var url=SHARE_URL+"#"+b.getAttribute("data-link"), v=LIB.vehicles.filter(function(x){return x.id===b.getAttribute("data-link");})[0];
+        var url=SITE_URL+"#"+b.getAttribute("data-link"), v=LIB.vehicles.filter(function(x){return x.id===b.getAttribute("data-link");})[0];
         function show(t){ var m=msg(t); var inp=document.createElement("input"); inp.value=url; inp.readOnly=true; inp.style.marginTop="8px"; m.appendChild(inp); inp.focus(); inp.select(); }
         try{ navigator.clipboard.writeText(url).then(function(){ show("Copied the link for "+vName(v)+". Text it to your customer:"); },function(){ show("Copy this link for "+vName(v)+":"); }); }catch(e){ show("Copy this link for "+vName(v)+":"); }
       });});
