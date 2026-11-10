@@ -126,7 +126,8 @@ footer.ft{margin-top:30px;display:flex;justify-content:space-between;flex-wrap:w
 .shotbox{display:flex;flex-wrap:wrap;align-items:flex-end;gap:10px}.shotbox .f{flex:1 1 240px}
 .vlist div{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .vlist b{color:var(--ink)}
-.vfind{display:grid;gap:10px}.vsel{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}@media (max-width:640px){.vsel{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.vfind{display:grid;gap:10px}
+.creq{border:1px solid var(--line);padding:12px 14px;margin-bottom:4px}.creq-hd{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}.creq h3{margin:0}.creq .vlist div:last-child{border-bottom:0}.vsel{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}@media (max-width:640px){.vsel{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .vcount{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;color:var(--muted,#9aa);font-size:13px;padding:8px 0}
 .msg{font-size:14px;padding:10px 12px;border-radius:2px;background:var(--surface2)}
 .msg.err{color:var(--warn)}
@@ -900,6 +901,62 @@ function openAdmin(){
       sel.disabled=!vals.length;
     });
   }
+  // ---- Car requests from the staff page (Zapier Tables, read through the viewer's Zapier connector) ----
+  var REQ={state:"idle",rows:[],err:"",busy:{}};
+  var REQ_TABLE="01M73F6SWVKGYDRYRK4GDSKX79";
+  function zap(tool,args){
+    return window.claude.use("mcp").then(function(mcp){
+      if(!mcp) throw {code:"unavailable"};
+      return mcp.callTool("Zapier",tool,args);
+    }).then(function(res){
+      var p=res&&res.payload;
+      if(p&&typeof p==="object"&&p.results) return p;
+      var t=(res&&res.content||[]).filter(function(c){return c&&c.type==="text";}).map(function(c){return c.text;}).join("\n");
+      var cut=t.lastIndexOf("}"); var st=t.indexOf("{");
+      try{ return JSON.parse(t.slice(st,cut+1)); }catch(e){ throw {code:"bad_reply",message:t.slice(0,200)}; }
+    });
+  }
+  function loadReqs(){
+    REQ.state="loading"; drawReqs();
+    zap("execute_zapier_read_action",{selected_api:"TableCLIAPI",action:"find_record",tool_name:"zapier_tables_find_records",
+      params:{table_id:REQ_TABLE,dynamic_properties:{filter_count:"1",field_data_key:"f7",operator:"exact",lookup_value:"New"}}})
+    .then(function(j){
+      REQ.rows=(j.results||[]).map(function(r){var d=(r.old||r.new||{}).data||{};return {id:r.record_id,year:d.f1||"",make:d.f2||"",model:d.f3||"",trim:d.f4||"",note:d.f5||"",by:d.f6||"",at:d.f8||""};})
+        .filter(function(r){return r.id&&r.make!=="TEST";});
+      REQ.state="ok"; drawReqs();
+    }).catch(function(e){REQ.state="err";REQ.err=(e&&e.code)||"error";drawReqs();});
+  }
+  function closeReq(id,status){
+    return zap("execute_zapier_write_action",{selected_api:"TableCLIAPI",action:"update_record",
+      params:{table_id:REQ_TABLE,record_id:id,dynamic_properties:{new__data__f7:status}}});
+  }
+  function reqName(r){return [r.year,r.make,r.model,r.trim].filter(Boolean).join(" ");}
+  function reqWhen(at){var d=new Date(at); if(isNaN(d))return ""; return d.toLocaleDateString("en-US",{month:"short",day:"numeric"});}
+  function drawReqs(){
+    var box=d.querySelector("#creq"); if(!box)return;
+    var h='<div class="creq-hd"><h3>Car requests</h3><button class="btn plain" id="rqLoad"'+(REQ.state==="loading"?" disabled":"")+'>'+(REQ.state==="idle"?"Check requests":"Refresh")+'</button></div>';
+    if(REQ.state==="idle") h+='<p class="mapnote">Cars your staff asked for from the staff page.</p>';
+    else if(REQ.state==="loading") h+='<p class="mapnote">Checking…</p>';
+    else if(REQ.state==="err") h+='<p class="mapnote">'+esc(REQ.err==="unavailable"?"Requests need your Zapier connector. Open this page in Claude with Zapier connected.":
+        REQ.err==="needs_reauth"?"Zapier needs you to sign in again. Reconnect Zapier in Claude's connector settings, then refresh.":
+        REQ.err==="server_not_connected"?"Zapier isn't connected to your Claude account. Connect it, then refresh.":
+        REQ.err==="approval_required"||REQ.err==="not_granted"?"Allow this page to use Zapier when Claude asks, then refresh.":
+        "Couldn't load requests ("+REQ.err+"). Refresh to try again.")+'</p>';
+    else if(!REQ.rows.length) h+='<p class="mapnote">No open requests.</p>';
+    else h+='<div class="vlist">'+REQ.rows.map(function(r){var b=REQ.busy[r.id];
+      return '<div><span><b>'+esc(reqName(r))+'</b> <span class="mapnote">&middot; '+esc((r.by||"").split("@")[0])+(reqWhen(r.at)?' &middot; '+esc(reqWhen(r.at)):'')+'</span>'+(r.note?'<br><span class="mapnote">'+esc(r.note)+'</span>':'')+'</span>'+
+        '<span class="acts">'+(b?'<span class="mapnote">'+esc(b)+'</span>':'<button class="btn primary" data-rqadd="'+esc(r.id)+'">Add this car</button><button class="btn plain" data-rqno="'+esc(r.id)+'">Not adding</button>')+'</span></div>';}).join("")+'</div>';
+    box.innerHTML=h;
+    d.querySelector("#rqLoad").addEventListener("click",loadReqs);
+    box.querySelectorAll("[data-rqadd]").forEach(function(btn){btn.addEventListener("click",function(){
+      var r=REQ.rows.filter(function(x){return x.id===btn.getAttribute("data-rqadd");})[0];
+      edit={id:null,year:r.year,make:r.make,model:r.model,trim:r.trim,body:"SUV",rows:[],reqId:r.id}; draw();
+      msg("Started from "+(r.by||"a staff")+"'s request. When you save, the request is marked added.");});});
+    box.querySelectorAll("[data-rqno]").forEach(function(btn){btn.addEventListener("click",function(){
+      var id=btn.getAttribute("data-rqno"); REQ.busy[id]="Closing…"; drawReqs();
+      closeReq(id,"Not adding").then(function(){REQ.rows=REQ.rows.filter(function(x){return x.id!==id;});delete REQ.busy[id];drawReqs();})
+        .catch(function(e){REQ.busy[id]="Couldn't close it ("+((e&&e.code)||"error")+")";drawReqs();});});});
+  }
   function rowHtml(v){return '<div><span><b>'+esc(vName(v))+'</b> <span class="mapnote">&middot; '+esc(v.body||"")+' &middot; '+v.pieces.length+' pieces</span></span><span class="acts">'+
         (confirmDel===v.id?'<button class="btn danger" data-del="'+v.id+'">Yes, delete</button><button class="btn plain" data-nodel>Keep</button>':'<button class="btn primary" data-link="'+v.id+'">Copy customer link</button><button class="btn plain" data-edit="'+v.id+'">Edit</button><button class="btn plain" data-askdel="'+v.id+'">Delete</button>')+'</span></div>';}
   function renderList(){
@@ -930,6 +987,7 @@ function openAdmin(){
   function draw(){
     var h='<div class="card"><div class="hd"><h2>Shop tools</h2><button class="btn plain" data-close>Close</button></div>';
     if(!edit){
+      h+='<div id="creq" class="creq"></div>';
       h+='<div class="vfind"><label class="f" for="fQ">Search the library<input id="fQ" type="search" autocomplete="off" placeholder="Year, make, model or trim, e.g. 911 or Raptor" value="'+esc(flt.q)+'"></label>'+
         '<div class="vsel">'+FKEYS.map(function(k){return '<label class="f" for="f_'+k+'">'+FLABEL[k]+'<select id="f_'+k+'" data-f="'+k+'"></select></label>';}).join("")+'</div></div>'+
         '<div id="vres" aria-live="polite"></div>';
@@ -963,7 +1021,7 @@ function openAdmin(){
       q("#fQ").addEventListener("input",function(e){flt.q=e.target.value;confirmDel=null;renderList();});
       d.querySelectorAll("[data-f]").forEach(function(sel){sel.addEventListener("change",function(){var k=sel.getAttribute("data-f");flt[k]=sel.value;
         for(var j=FKEYS.indexOf(k)+1;j<FKEYS.length;j++)flt[FKEYS[j]]="";confirmDel=null;renderList();});});
-      renderList();
+      renderList(); drawReqs();
       q("#saveS").addEventListener("click",function(){var nl=JSON.parse(JSON.stringify(LIB));nl.shop.phone=q("#sPhone").value.trim();var r=parseInt(q("#sRound").value,10);nl.shop.roundTo=r>0?r:50;publishLib(nl,msg(""));});
     } else {
       ["eY","eM","eO","eT","eB"].forEach(function(id,i){q("#"+id).addEventListener("input",function(e){edit[["year","make","model","trim","body"][i]]=e.target.value;});});
@@ -1011,7 +1069,8 @@ function openAdmin(){
         if(oldV&&oldV.heroImage) vObj.heroImage=oldV.heroImage;
         nl.vehicles=nl.vehicles.filter(function(x){return x.id!==id&&x.id!==edit.id;}); nl.vehicles.push(vObj);
         try{sessionStorage.setItem("ppf_vid",id);}catch(e){}
-        publishLib(nl,msg(""));
+        if(edit.reqId){ var m0=msg("Marking the request added…"); closeReq(edit.reqId,"Added").then(function(){publishLib(nl,m0);},function(){publishLib(nl,m0);}); }
+        else publishLib(nl,msg(""));
       });
     }
   }
