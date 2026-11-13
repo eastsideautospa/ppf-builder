@@ -273,7 +273,7 @@ var CATS = {
   lowerdoors:{label:"Rocker kit, included with door kits",sec:"sides"},
   wear:{label:"Door cups, edges & high-wear spots",sec:"sides",ex:true},
   impact:{label:"Rear wheel impact areas, included with door kits",sec:"sides"},
-  bpillars:{label:"B & C pillars",sec:"sides",ex:true},
+  bpillars:{label:"B, C & D pillars",sec:"sides",ex:true},
   flares:{label:"Fender flares",sec:"sides"},
   pillars:{label:"A-pillars & roof edge",sec:"top",ex:true},
   roof:{label:"Roof",sec:"top",ex:true},
@@ -471,6 +471,7 @@ function presetList(v,sel){
   var track=front.concat(all("rockers"),all("lowerdoors"),first("pillars"));
   var car=front.concat(all("sides"),all("flares"),all("rockers"),first("roof"),all("trunk"),all("bumperR"),all("diffuser"),all("wear"));
   var pk=first("pillars"); if(pk.length&&!pillarCovered(car,pk[0])) car=car.concat(pk);
+  car=car.concat(first("bpillars"));
   var out=[],seen={};
   [["partial","Partial front",partial],["front","Full front",front],["track","Track pack",track],["full","Full car",car]].forEach(function(p){
     if(p[2].length<2)return; var key=p[2].map(function(x){return x.id;}).sort().join(","); if(seen[key])return; seen[key]=1;
@@ -491,7 +492,7 @@ function pieceWords(p){
     case "bumperF": return "front bumper"; case "grille": return "grille"; case "lamps": return /fog/.test(t)?"headlights & fog lights":"headlights";
     case "fog": return "fog lights"; case "mirrors": return "mirrors"; case "sides": return /bed/.test(t)?"bed sides":/pillar/.test(t)?"doors & A-pillars":"doors & rear fenders"; case "flares": return "fender flares"; case "impact": return "rear wheel impact areas";
     case "rockers": return "rockers"; case "lowerdoors": return "lower doors"; case "wear": return "door cups & edges";
-    case "pillars": return /roof/.test(t)?"A-pillars & roof edge":"A-pillars"; case "bpillars": return "B & C pillars"; case "roof": return "roof";
+    case "pillars": return /roof/.test(t)?"A-pillars & roof edge":"A-pillars"; case "bpillars": var ls=["b","c","d"].filter(function(l){return new RegExp("\\b"+l+"-? ?pillar").test(t);}).map(function(l){return l.toUpperCase();}); return (ls.length>1?ls.slice(0,-1).join(", ")+" & "+ls[ls.length-1]:ls.length?ls[0]:"B & C")+" pillars"; case "roof": return "roof";
     case "trunk": return p.name.replace(/ kit$/i,"").toLowerCase(); case "bumperR": return "rear bumper"; case "diffuser": return "rear diffuser";
     case "taillights": return "tail lights"; case "interior": return "screens & interior";
   }
@@ -578,17 +579,19 @@ function selected(v){return v?v.pieces.filter(function(p){return state.sel[p.id]
 /* overlap rules: full roof covers the roof edge of an A-pillar kit; full sides cover its pillars */
 function covers(list){
   var has=function(c){return list.some(function(p){return p.cat===c;});};
-  return {roof:has("roof"), sides:list.some(function(p){return p.cat==="sides"&&/door/i.test(p.name);})};
+  return {roof:has("roof"), sides:list.some(function(p){return p.cat==="sides"&&/door/i.test(p.name);}),
+    /* only a door kit that names the pillars (e.g. "Door and A-Pillar Kit") actually includes the A-pillars */
+    apill:list.some(function(p){return p.cat==="sides"&&/pillar/i.test(p.name+" "+p.note);})};
 }
-function pillarRedundant(list){ var c=covers(list); return c.roof&&c.sides; }
+function pillarRedundant(list){ var c=covers(list); return c.roof&&c.apill; }
 function hasRoofEdge(p){ return /roof/i.test(p.name+" "+p.note); }
-function pillarCovered(list,p){ var c=covers(list); return c.sides&&(c.roof||!hasRoofEdge(p)); }
+function pillarCovered(list,p){ var c=covers(list); return c.apill&&(c.roof||!hasRoofEdge(p)); }
 /* a "lower doors" rocker kit is part of the door kits, so full sides cover it */
 function lowerRedundant(list){ return covers(list).sides; }
 function coverage(list){
   var c=covers(list), on={};
   list.forEach(function(p){ zonesFor(p).forEach(function(z){
-    if(p.cat==="pillars"){ if(z==="header"&&c.roof) return; if(/^pillars/.test(z)&&c.sides) return; }
+    if(p.cat==="pillars"){ if(z==="header"&&c.roof) return; if(/^pillars/.test(z)&&c.apill) return; }
     if((p.cat==="lowerdoors"||p.cat==="impact")&&c.sides) return;
     on[z]=1; }); });
   return on;
